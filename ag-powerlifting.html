@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AG Powerlifting</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#2c2c2c;color:#dde1ea;font-family:'DM Mono','Courier New',monospace}
+  ::-webkit-scrollbar{width:3px;height:3px}
+  ::-webkit-scrollbar-thumb{background:#555;border-radius:2px}
+  input,textarea,button{font-family:inherit}
+  .si{background:#2c2c2c;border:1px solid #3d3d3d;color:#dde1ea;padding:5px 8px;border-radius:5px;width:72px;font-size:12px;text-align:center;transition:border-color .15s}
+  .si:focus{outline:none;border-color:#777}
+  .si::placeholder{color:#666}
+  .ei{background:#2c2c2c;border:1px solid #666;color:#dde1ea;padding:4px 8px;border-radius:5px;font-size:12px}
+  .ei:focus{outline:none;border-color:#999}
+  .btn{cursor:pointer;transition:opacity .15s;border:none}
+  .btn:hover{opacity:.8}
+  .drow:hover{background:#383838!important}
+  @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .fi{animation:fi .2s ease forwards}
+  @keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── Storage (localStorage for deployed HTML) ──────────────────────────────────
+const store = {
+  get: k => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null; } catch{ return null; } },
+  set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} },
+};
+
+// ── Seed Data ─────────────────────────────────────────────────────────────────
+const SEED_WEEKS = [
+  { id:1, label:"Week 1", phase:"Hypertrophy", days:[
+    { id:"1-0", label:"Monday", focus:"True Upper Hypertrophy", type:"accessory", exercises:[
+      {name:"DB Incline Bench",sets:4,reps:"x10",weight:null,targetRPE:null,lift:null},
+      {name:"Lat Pulldowns (Wide)",sets:4,reps:"x12",weight:null,targetRPE:null,lift:null},
+      {name:"Military Press",sets:3,reps:"x10",weight:null,targetRPE:null,lift:null},
+      {name:"Tricep Pushdowns",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"1-1", label:"Tuesday", focus:"SBD Focus A", type:"sbd", exercises:[
+      {name:"Squat",sets:3,reps:"x6",weight:330,targetRPE:null,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x6",weight:205,targetRPE:null,lift:"bench"},
+      {name:"Leg Extensions",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"1-2", label:"Wednesday", focus:"Lower Accessories", type:"accessory", exercises:[
+      {name:"Leg Press",sets:4,reps:"x12",weight:null,targetRPE:null,lift:null},
+      {name:"RDL (Dumbbell)",sets:4,reps:"x10",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Curls (Seated)",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Hammer Curls",sets:3,reps:"x12",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"1-3", label:"Thursday", focus:"REST", type:"rest", exercises:[] },
+    { id:"1-4", label:"Friday", focus:"SBD Focus B", type:"sbd", exercises:[
+      {name:"Deadlift",sets:3,reps:"x2",weight:520,targetRPE:8.5,lift:"deadlift"},
+      {name:"Bench Press",sets:3,reps:"x5",weight:250,targetRPE:8,lift:"bench"},
+      {name:"Facepulls",sets:4,reps:"x20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"1-5", label:"Saturday", focus:"SBD", type:"sbd", exercises:[
+      {name:"Pause Squat",sets:3,reps:"x8",weight:315,targetRPE:6.5,lift:"squat"},
+      {name:"Bench Press",sets:3,reps:"x3",weight:265,targetRPE:8.5,lift:"bench"},
+      {name:"Deadlift Speed Pulls",sets:2,reps:"x6",weight:355,targetRPE:6,lift:"deadlift"},
+      {name:"Hanging Leg Raises",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"1-6", label:"Sunday", focus:"Low-Fatigue Upper", type:"accessory", exercises:[
+      {name:"DB Incline Bench",sets:3,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+      {name:"Chest-Supported Row",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Cable Lateral Raises",sets:3,reps:"x15-20",weight:null,targetRPE:null,lift:null},
+      {name:"Lat Pulldown (Wide)",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+  ]},
+  { id:2, label:"Week 2", phase:"Hypertrophy", days:[
+    { id:"2-0", label:"Monday", focus:"True Upper Hypertrophy", type:"accessory", exercises:[
+      {name:"Incline Press",sets:3,reps:"x10",weight:null,targetRPE:7,lift:null},
+      {name:"Lat Pulldowns (Wide)",sets:4,reps:"x12",weight:null,targetRPE:8,lift:null},
+      {name:"Military Press",sets:3,reps:"x10",weight:null,targetRPE:7,lift:null},
+      {name:"Tricep Pushdowns / Biceps",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"2-1", label:"Tuesday", focus:"SBD Focus A", type:"sbd", exercises:[
+      {name:"Squat",sets:3,reps:"x6",weight:352,targetRPE:7.5,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x6",weight:210,targetRPE:7.5,lift:"bench"},
+      {name:"Leg Extensions",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"2-2", label:"Wednesday", focus:"Lower Accessories", type:"accessory", exercises:[
+      {name:"Leg Press",sets:4,reps:"x12",weight:null,targetRPE:null,lift:null},
+      {name:"RDL (Dumbbell)",sets:4,reps:"x10",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Curls (Seated)",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Hammer Curls",sets:3,reps:"x12",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"2-3", label:"Thursday", focus:"REST", type:"rest", exercises:[] },
+    { id:"2-4", label:"Friday", focus:"SBD Focus B", type:"sbd", exercises:[
+      {name:"Deadlift",sets:3,reps:"x2",weight:505,targetRPE:8,lift:"deadlift"},
+      {name:"Bench Press",sets:3,reps:"x5",weight:245,targetRPE:8.25,lift:"bench"},
+      {name:"Facepulls",sets:4,reps:"x20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"2-5", label:"Saturday", focus:"SBD", type:"sbd", exercises:[
+      {name:"Pause Squat",sets:3,reps:"x8",weight:330,targetRPE:7,lift:"squat"},
+      {name:"Bench Press",sets:3,reps:"x3",weight:255,targetRPE:8.5,lift:"bench"},
+      {name:"Deadlift Speed Pulls",sets:3,reps:"x5",weight:395,targetRPE:6,lift:"deadlift"},
+      {name:"Hanging Leg Raises",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"2-6", label:"Sunday", focus:"Low-Fatigue Upper", type:"accessory", exercises:[
+      {name:"DB Incline Bench",sets:3,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+      {name:"Chest-Supported Row",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Cable Lateral Raises",sets:3,reps:"x15-20",weight:null,targetRPE:null,lift:null},
+      {name:"Lat Pulldown (Wide)",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+  ]},
+  { id:3, label:"Week 3", phase:"Intensification", days:[
+    { id:"3-0", label:"Monday", focus:"Bench + Upper", type:"sbd", exercises:[
+      {name:"Bench Press",sets:4,reps:"x5",weight:255,targetRPE:7.75,lift:"bench"},
+      {name:"Overhead Press",sets:4,reps:"x6-8",weight:null,targetRPE:null,lift:null},
+      {name:"Chest Supported Row",sets:4,reps:"x8-10",weight:null,targetRPE:8,lift:null},
+      {name:"Lateral Raise",sets:3,reps:"x15-20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"3-1", label:"Tuesday", focus:"SBD Focus A", type:"sbd", exercises:[
+      {name:"Squat",sets:3,reps:"x6",weight:360,targetRPE:7.75,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x6",weight:220,targetRPE:7.75,lift:"bench"},
+      {name:"Leg Extensions",sets:4,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"3-2", label:"Wednesday", focus:"Lower Accessories", type:"accessory", exercises:[
+      {name:"Bulgarian Split Squats",sets:4,reps:"x8-10",weight:null,targetRPE:null,lift:null},
+      {name:"Hack Squat / Belt Squat",sets:3,reps:"x10",weight:null,targetRPE:8,lift:null},
+      {name:"Leg Curls (Seated)",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+      {name:"Back Extensions / Calves",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"3-3", label:"Thursday", focus:"REST", type:"rest", exercises:[] },
+    { id:"3-4", label:"Friday", focus:"SBD Focus B", type:"sbd", exercises:[
+      {name:"Deadlift",sets:4,reps:"x2",weight:495,targetRPE:8,lift:"deadlift"},
+      {name:"Bench Press",sets:3,reps:"x5",weight:255,targetRPE:8.25,lift:"bench"},
+      {name:"Facepulls",sets:4,reps:"x20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"3-5", label:"Saturday", focus:"SBD", type:"sbd", exercises:[
+      {name:"Pause Squat",sets:3,reps:"x8",weight:340,targetRPE:7.75,lift:"squat"},
+      {name:"Bench Press",sets:3,reps:"x3",weight:265,targetRPE:8.25,lift:"bench"},
+      {name:"Deadlift Speed Pulls",sets:3,reps:"x5",weight:405,targetRPE:6.25,lift:"deadlift"},
+      {name:"Hanging Leg Raises",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"3-6", label:"Sunday", focus:"Low-Fatigue Upper", type:"accessory", exercises:[
+      {name:"DB Incline Bench",sets:3,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+      {name:"Chest-Supported Row",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Cable Lateral Raises",sets:3,reps:"x15-20",weight:null,targetRPE:null,lift:null},
+      {name:"Lat Pulldown (Wide)",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+  ]},
+  { id:4, label:"Week 4", phase:"Strength", days:[
+    { id:"4-0", label:"Monday", focus:"Bench + Upper", type:"sbd", exercises:[
+      {name:"Bench Press",sets:4,reps:"x5",weight:260,targetRPE:7.75,lift:"bench"},
+      {name:"Pec Deck",sets:4,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+      {name:"Chest Supported Row",sets:4,reps:"x8-10",weight:null,targetRPE:8,lift:null},
+      {name:"Cable Tricep Overhead",sets:4,reps:"x12-15",weight:null,targetRPE:8,lift:null},
+    ]},
+    { id:"4-1", label:"Tuesday", focus:"SBD Focus A", type:"sbd", exercises:[
+      {name:"Squat",sets:3,reps:"x4",weight:385,targetRPE:8,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x4",weight:245,targetRPE:8,lift:"bench"},
+      {name:"Leg Extensions",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"4-2", label:"Wednesday", focus:"Lower Accessories", type:"accessory", exercises:[
+      {name:"Bulgarian Split Squats",sets:4,reps:"x8-10",weight:null,targetRPE:null,lift:null},
+      {name:"Hack Squat / Belt Squat",sets:3,reps:"x10",weight:null,targetRPE:8,lift:null},
+      {name:"Leg Curls (Seated)",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+      {name:"Back Extensions / Calves",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"4-3", label:"Thursday", focus:"REST", type:"rest", exercises:[] },
+    { id:"4-4", label:"Friday", focus:"Full SBD", type:"sbd", exercises:[
+      {name:"Squat",sets:3,reps:"x4",weight:385,targetRPE:8,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x4",weight:242,targetRPE:8,lift:"bench"},
+      {name:"Deadlift",sets:3,reps:"x2-3",weight:507,targetRPE:8.25,lift:"deadlift"},
+      {name:"Facepulls",sets:4,reps:"x20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"4-5", label:"Saturday", focus:"Upper Hypertrophy", type:"accessory", exercises:[
+      {name:"DB Incline Press",sets:4,reps:"x10-12",weight:null,targetRPE:7.5,lift:null},
+      {name:"Lat Pulldown (Wide)",sets:4,reps:"x10-12",weight:null,targetRPE:8,lift:null},
+      {name:"Machine Shoulder Press",sets:3,reps:"x10-12",weight:null,targetRPE:7.5,lift:null},
+      {name:"Tricep Pushdowns",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"4-6", label:"Sunday", focus:"Low-Fatigue Lower", type:"accessory", exercises:[
+      {name:"Leg Press",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Curls (Seated)",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Extensions",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Hanging Leg Raises",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+  ]},
+  { id:5, label:"Week 5", phase:"Strength", days:[
+    { id:"5-0", label:"Monday", focus:"Bench + Upper", type:"sbd", exercises:[
+      {name:"Bench Press",sets:4,reps:"x5",weight:260,targetRPE:7.75,lift:"bench"},
+      {name:"Pec Deck",sets:4,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+      {name:"Chest Supported Row",sets:4,reps:"x8-10",weight:null,targetRPE:8,lift:null},
+      {name:"Cable Tricep Overhead",sets:4,reps:"x12-15",weight:null,targetRPE:8,lift:null},
+    ]},
+    { id:"5-1", label:"Tuesday", focus:"Squat + Deadlift", type:"sbd", exercises:[
+      {name:"Squat",sets:4,reps:"x4",weight:400,targetRPE:8,lift:"squat"},
+      {name:"Pause Sumo Deadlift",sets:3,reps:"x4",weight:440,targetRPE:7.25,lift:"deadlift"},
+      {name:"Leg Extensions",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"5-2", label:"Wednesday", focus:"Lower Accessories", type:"accessory", exercises:[
+      {name:"Smith Machine Split Squats",sets:4,reps:"x8-10",weight:null,targetRPE:null,lift:null},
+      {name:"Belt Squat",sets:3,reps:"x10",weight:null,targetRPE:8,lift:null},
+      {name:"Leg Curls (Seated)",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+      {name:"Back Extensions / Calves",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"5-3", label:"Thursday", focus:"REST", type:"rest", exercises:[] },
+    { id:"5-4", label:"Friday", focus:"SBD", type:"sbd", exercises:[
+      {name:"Squat",sets:3,reps:"x3",weight:405,targetRPE:8.25,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x4",weight:255,targetRPE:8,lift:"bench"},
+      {name:"Deadlift",sets:3,reps:"x2",weight:520,targetRPE:8.25,lift:"deadlift"},
+      {name:"Facepulls",sets:4,reps:"x20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"5-5", label:"Saturday", focus:"Upper Hypertrophy", type:"accessory", exercises:[
+      {name:"DB Incline Press",sets:4,reps:"x10-12",weight:null,targetRPE:null,lift:null},
+      {name:"Lat Pulldown (Wide)",sets:4,reps:"x10-12",weight:null,targetRPE:8,lift:null},
+      {name:"Machine Shoulder Press",sets:3,reps:"x10-12",weight:null,targetRPE:null,lift:null},
+      {name:"Tricep Pushdowns",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"5-6", label:"Sunday", focus:"Low-Fatigue Lower", type:"accessory", exercises:[
+      {name:"Leg Press",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Curls",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Extensions",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Hanging Leg Raises",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Calves",sets:2,reps:"x15-20",weight:null,targetRPE:null,lift:null},
+    ]},
+  ]},
+  { id:6, label:"Week 6", phase:"High Intensity", days:[
+    { id:"6-0", label:"Monday", focus:"Bench + Upper", type:"sbd", exercises:[
+      {name:"Bench Press",sets:4,reps:"x5",weight:265,targetRPE:7.75,lift:"bench"},
+      {name:"Cable Flyes",sets:4,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+      {name:"Seal Row",sets:4,reps:"x8-10",weight:null,targetRPE:null,lift:null},
+      {name:"Cable Tricep Overhead",sets:4,reps:"x12-15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"6-1", label:"Tuesday", focus:"Squat + Deadlift", type:"sbd", exercises:[
+      {name:"Squat",sets:4,reps:"x4",weight:395,targetRPE:8,lift:"squat"},
+      {name:"Deficit Sumo Deadlift",sets:3,reps:"x3",weight:425,targetRPE:7.5,lift:"deadlift"},
+      {name:"Nordic Curls / GHR",sets:3,reps:"x8-10",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"6-2", label:"Wednesday", focus:"Lower Accessories", type:"accessory", exercises:[
+      {name:"Bulgarian Split Squats",sets:4,reps:"x8-10",weight:null,targetRPE:null,lift:null},
+      {name:"SSB Squat / Hack Squat",sets:3,reps:"x10",weight:null,targetRPE:8,lift:null},
+      {name:"Leg Curls (Seated)",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+      {name:"Back Extensions / Calves",sets:4,reps:"x10-15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"6-3", label:"Thursday", focus:"REST", type:"rest", exercises:[] },
+    { id:"6-4", label:"Friday", focus:"SBD High Intensity", type:"sbd", exercises:[
+      {name:"Squat",sets:4,reps:"x3",weight:380,targetRPE:8.25,lift:"squat"},
+      {name:"Bench Press",sets:4,reps:"x3",weight:262,targetRPE:8.25,lift:"bench"},
+      {name:"Deadlift",sets:3,reps:"x2",weight:520,targetRPE:8.25,lift:"deadlift"},
+      {name:"Band Pull-Aparts",sets:4,reps:"x20",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"6-5", label:"Saturday", focus:"Upper Hypertrophy", type:"accessory", exercises:[
+      {name:"Barbell Incline Press",sets:4,reps:"x10-12",weight:null,targetRPE:7.5,lift:null},
+      {name:"Lat Pulldown (Close Grip)",sets:4,reps:"x10-12",weight:null,targetRPE:8,lift:null},
+      {name:"Machine Shoulder Press",sets:3,reps:"x10-12",weight:null,targetRPE:7.5,lift:null},
+      {name:"Tricep Pushdowns",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+    ]},
+    { id:"6-6", label:"Sunday", focus:"Low-Fatigue Lower", type:"accessory", exercises:[
+      {name:"Hip Thrusts",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Curls (Seated)",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Leg Extensions",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Hanging Leg Raises",sets:3,reps:"x15",weight:null,targetRPE:null,lift:null},
+      {name:"Calves",sets:2,reps:"x15-20",weight:null,targetRPE:null,lift:null},
+    ]},
+  ]},
+];
+
+const SUBSTITUTIONS = {
+  squat:["Squat","Pause Squat","Box Squat","SSB Squat","Hack Squat","Leg Press","Belt Squat"],
+  bench:["Bench Press","Pause Bench","Close Grip Bench","DB Bench Press","Incline Press","Floor Press"],
+  deadlift:["Deadlift","Sumo Deadlift","Deficit Deadlift","Rack Pull","Romanian Deadlift","Trap Bar Deadlift"],
+  upper:["DB Incline Bench","Barbell Incline Press","Cable Flyes","Pec Deck","Seal Row","Chest-Supported Row","Overhead Press","Machine Shoulder Press","Lateral Raise","Face Pulls","Band Pull-Aparts"],
+  lower:["Leg Press","Hack Squat","Belt Squat","Bulgarian Split Squats","RDL (Dumbbell)","Leg Curls (Seated)","Leg Extensions","Back Extensions","Hip Thrusts","Nordic Curls","Calves"],
+  arms:["Tricep Pushdowns","Cable Tricep Overhead","Hammer Curls","EZ Bar Curls","Preacher Curls","Skullcrushers"],
+  core:["Hanging Leg Raises","Ab Wheel","Planks","Cable Crunches","Pallof Press"],
+};
+
+const PHASE_COLORS = {"Hypertrophy":"#4ade80","Intensification":"#facc15","Strength":"#f97316","High Intensity":"#ef4444","Off-Season":"#60a5fa"};
+const LIFT_COLORS = {squat:"#c084fc",bench:"#60a5fa",deadlift:"#fb923c"};
+const C = {bg:"#2c2c2c",card:"#323232",hover:"#383838",border:"#3d3d3d",borderHi:"#484848",text:"#dde1ea",muted:"#aaa",faint:"#888",dim:"#666"};
+
+const pCol = p => PHASE_COLORS[p]||"#888";
+const rpeCol = (a,t) => { if(!a||!t) return C.dim; const d=a-t; return d>=1.5?"#ef4444":d>=0.5?"#facc15":"#4ade80"; };
+const nextW = (w,a,t) => { if(!a||!t||!w) return null; const d=a-t; if(d>=1.5) return Math.round((w-7.5)/5)*5; if(d>=0.5) return w; return Math.round((w+5)/5)*5; };
+
+// Plate calculator
+const BAR_KG=20, LBS_TO_KG=0.453592;
+const PLATES_KG=[25,20,15,10,5,2.5,1.25];
+const PLATE_COLORS_MAP={25:"#ef4444",20:"#3b82f6",15:"#facc15",10:"#4ade80",5:"#e5e5e5",2.5:"#fb923c",1.25:"#a78bfa"};
+function calcPlates(lbs) {
+  if(!lbs) return null;
+  const perSide=(parseFloat(lbs)*LBS_TO_KG-BAR_KG)/2;
+  if(perSide<=0) return [];
+  let rem=Math.round(perSide*1000)/1000, result=[];
+  for(const p of PLATES_KG){ const c=Math.floor(rem/p+0.0001); if(c>0){result.push({kg:p,count:c});rem=Math.round((rem-c*p)*1000)/1000;} }
+  return result;
+}
+function PlateDisplay({weightLbs}) {
+  const lbs=parseFloat(weightLbs);
+  if(!lbs) return null;
+  const plates=calcPlates(lbs);
+  if(!plates) return null;
+  const totalKg=(lbs*LBS_TO_KG).toFixed(2);
+  const platesKg=((lbs*LBS_TO_KG)-BAR_KG).toFixed(2);
+  return (
+    <div style={{marginTop:10,padding:"10px 12px",background:"#282828",borderRadius:8,border:"1px solid #3a3a3a"}}>
+      <div style={{fontSize:9,color:"#666",letterSpacing:1,marginBottom:8}}>BAR LOADED · {totalKg}kg total · 20kg bar + {platesKg}kg plates</div>
+      {plates.length===0 ? <div style={{fontSize:10,color:"#888"}}>Bar only (20kg)</div> : (
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"flex-end",gap:2}}>
+            <div style={{width:8,height:10,background:"#888",borderRadius:"2px 0 0 2px"}}/>
+            {plates.map((p,i)=>Array.from({length:p.count},(_,j)=>(
+              <div key={i+"-"+j} title={p.kg+"kg"} style={{
+                width:p.kg>=20?13:p.kg>=10?10:p.kg>=5?8:6,
+                height:p.kg>=20?38:p.kg>=10?30:p.kg>=5?22:16,
+                background:PLATE_COLORS_MAP[p.kg],borderRadius:2,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:6,color:p.kg>=10?"#fff":"#111",fontWeight:"bold",
+                boxShadow:"0 1px 3px rgba(0,0,0,.35)"
+              }}>{p.kg>=10?p.kg:""}</div>
+            )))}
+            <div style={{width:8,height:10,background:"#888",borderRadius:"0 2px 2px 0"}}/>
+          </div>
+          <div style={{fontSize:10,color:"#888",marginLeft:4}}>each side</div>
+          <div style={{marginLeft:"auto",fontSize:10,color:"#aaa"}}>{plates.map(p=>p.count+"x"+p.kg+"kg").join(" + ")}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function hardestRPE(sets,ei,n){ let max=null; for(let si=0;si<n;si++){const v=parseFloat((sets[ei+"-"+si]||{}).rpe);if(!isNaN(v)&&(max===null||v>max))max=v;} return max; }
+function weekFatigue(week,logs){ let s=0,n=0; week.days.forEach(d=>{Object.values((logs[d.id]||{}).sets||{}).forEach(x=>{const r=parseFloat(x.rpe);if(!isNaN(r)){s+=r;n++;}});}); if(!n)return null; return Math.round(((s/n-5)/5)*100)/10; }
+
+// ── API call (proxied through Netlify function or direct with key) ─────────────
+async function callClaude(apiKey, body) {
+  const res = await fetch("/.netlify/functions/claude", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":apiKey},
+    body:JSON.stringify(body)
+  });
+  // fallback: if netlify function not found, call direct (dev mode)
+  if(res.status===404){
+    const res2=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
+      body:JSON.stringify(body)
+    });
+    return res2.json();
+  }
+  return res.json();
+}
+
+// ── Setup screen ──────────────────────────────────────────────────────────────
+function Setup({onSave}) {
+  const [key,setKey]=useState("");
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:36,maxWidth:420,width:"90%"}}>
+        <div style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:28,letterSpacing:3,color:"#fff",marginBottom:6}}>AG POWERLIFTING</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:2,marginBottom:24}}>FIRST TIME SETUP</div>
+        <div style={{fontSize:12,color:C.muted,lineHeight:1.7,marginBottom:20}}>
+          Enter your Anthropic API key to enable AI coaching and week generation. Get one free at <span style={{color:"#a78bfa"}}>console.anthropic.com</span>. Your key is stored locally on your device only.
+        </div>
+        <div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:6}}>ANTHROPIC API KEY</div>
+        <input value={key} onChange={e=>setKey(e.target.value)} placeholder="sk-ant-..."
+          type="password"
+          style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,padding:"10px 12px",marginBottom:16}}
+        />
+        <button className="btn" onClick={()=>key.trim()&&onSave(key.trim())}
+          style={{width:"100%",padding:"11px 0",borderRadius:8,border:"1px solid #a78bfa55",background:"transparent",color:"#a78bfa",fontSize:12,letterSpacing:1}}>
+          SAVE AND LAUNCH
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [apiKey,setApiKey]=useState(()=>store.get("ag-apikey")||"");
+  const [weeks,setWeeks]=useState(()=>store.get("ag-weeks")||SEED_WEEKS);
+  const [selWk,setSelWk]=useState(()=>{ const w=store.get("ag-weeks"); return w?w[w.length-1].id:6; });
+  const [view,setView]=useState("log");
+  const [openDay,setOpenDay]=useState(null);
+  const [logs,setLogs]=useState(()=>store.get("ag-logs")||{});
+  const [readiness,setReadiness]=useState(()=>store.get("ag-read")||{});
+  const [chat,setChat]=useState(()=>store.get("ag-chat")||[{role:"assistant",content:"Program loaded. Log each set as you go — weights are pre-filled. Hit '+ NEXT WEEK' at end of week for a preview before committing. Ask me anything."}]);
+  const [chatIn,setChatIn]=useState("");
+  const [chatLoad,setChatLoad]=useState(false);
+  const [preview,setPreview]=useState(null);
+  const [generating,setGenerating]=useState(false);
+  const [editEx,setEditEx]=useState(null);
+  const [exEdits,setExEdits]=useState({});
+  const [subMenu,setSubMenu]=useState(null);
+  const chatRef=useRef(null);
+
+  useEffect(()=>store.set("ag-weeks",weeks),[weeks]);
+  useEffect(()=>store.set("ag-logs",logs),[logs]);
+  useEffect(()=>store.set("ag-chat",chat.slice(-40)),[chat]);
+  useEffect(()=>store.set("ag-read",readiness),[readiness]);
+  useEffect(()=>chatRef.current?.scrollIntoView({behavior:"smooth"}),[chat]);
+
+  if(!apiKey) return <Setup onSave={k=>{store.set("ag-apikey",k);setApiKey(k);}}/>;
+
+  const week=weeks.find(w=>w.id===selWk)||weeks[weeks.length-1];
+  const getLog=id=>logs[id]||{note:"",sets:{},completed:false};
+  const updLog=(id,p)=>setLogs(prev=>({...prev,[id]:{...getLog(id),...p}}));
+  const updSet=(did,ei,si,f,v)=>{const l=getLog(did),s={...l.sets,[ei+"-"+si]:{...(l.sets[ei+"-"+si]||{}),[f]:v}};updLog(did,{sets:s});};
+  const getSet=(did,ei,si)=>getLog(did).sets[ei+"-"+si]||{};
+  const getR=id=>readiness[id]||{whoop:"",sleep:"",bw:""};
+  const updR=(id,p)=>setReadiness(prev=>({...prev,[id]:{...getR(id),...p}}));
+
+  function startEdit(did,ei,ex){const k=did+"-"+ei;setExEdits(p=>({...p,[k]:{name:ex.name,sets:ex.sets,reps:ex.reps,weight:ex.weight||"",rpe:ex.targetRPE||""}}));setEditEx(k);}
+  function saveEdit(did,ei){const k=did+"-"+ei,e=exEdits[k];if(!e)return;setWeeks(p=>p.map(w=>({...w,days:w.days.map(d=>d.id!==did?d:{...d,exercises:d.exercises.map((ex,i)=>i!==ei?ex:{...ex,name:e.name||ex.name,sets:parseInt(e.sets)||ex.sets,reps:e.reps||ex.reps,weight:e.weight?parseFloat(e.weight):ex.weight,targetRPE:e.rpe?parseFloat(e.rpe):ex.targetRPE})})})));setEditEx(null);}
+  function subEx(did,ei,name){setWeeks(p=>p.map(w=>({...w,days:w.days.map(d=>d.id!==did?d:{...d,exercises:d.exercises.map((ex,i)=>i!==ei?ex:{...ex,name})})})));setSubMenu(null);}
+
+  function subCatFor(ex){if(ex.lift)return ex.lift;const n=ex.name.toLowerCase();if(["leg","squat","rdl","curl","extension","hip","calf","nordic"].some(k=>n.includes(k)))return"lower";if(["tricep","bicep","pushdown","hammer"].some(k=>n.includes(k)))return"arms";if(["raise","row","press","fly","pull","face","band"].some(k=>n.includes(k)))return"upper";return"core";}
+
+  function buildSummary(wk){return wk.days.map(d=>{const l=getLog(d.id),r=getR(d.id);const ex=d.exercises.filter(e=>e.lift).map((ex,ei)=>{const hard=hardestRPE(l.sets,ei,ex.sets);const sets=Array.from({length:ex.sets},(_,si)=>{const s=getSet(d.id,ei,si);return (s.weight||ex.weight||"?")+"lb@RPE"+(s.rpe||"?");}).join(", ");return "  "+ex.name+": ["+sets+"] hardest RPE "+(hard||"not logged")+" (target "+(ex.targetRPE||"—")+")";}).join("\n");const rs=(r.whoop||r.sleep)?" | Whoop "+(r.whoop||"?")+"% Sleep "+(r.sleep||"?")+"/10 BW "+(r.bw||"?")+"lb":"";return d.label+" - "+d.focus+(l.completed?" ✓":"")+rs+":\n"+(ex||"  (accessories only)")+(l.note?'\n  Note: "'+l.note+'"':"");}).join("\n\n");}
+
+  async function generate(){
+    setGenerating(true);
+    const prompt="Expert powerlifting coach. Comp maxes: Squat 513lb, Bench 314lb, Deadlift 584lb. Off-season.\n\nRPE adjustment (HARDEST set per exercise). Whoop: <34% poor reduce load, 34-66% moderate, 67%+ good:\n- Actual <= Target: +5lb\n- 0.5-1 over: hold\n- >=1.5 over: -5-10lb\n- Accessories cap RPE 8\n- Sunday max RPE 6.5, no AMRAPs, no RPE 9+\n\nWeek "+week.id+" data:\n"+buildSummary(week)+"\n\nReturn ONLY raw JSON:\n{\"id\":"+(week.id+1)+",\"label\":\"Week "+(week.id+1)+"\",\"phase\":\"...\",\"reasoning\":\"2-3 sentences\",\"days\":[{\"id\":\""+(week.id+1)+"-0\",\"label\":\"Monday\",\"focus\":\"...\",\"type\":\"sbd|accessory|rest\",\"exercises\":[{\"name\":\"...\",\"sets\":3,\"reps\":\"x5\",\"weight\":330,\"targetRPE\":8,\"lift\":\"squat|bench|deadlift|null\"}]}]}\nAll 7 days Mon=0 to Sun=6, Thursday always rest.";
+    try{
+      const data=await callClaude(apiKey,{model:"claude-sonnet-4-20250514",max_tokens:1500,messages:[{role:"user",content:prompt}]});
+      const text=data.content?.find(b=>b.type==="text")?.text||"";
+      setPreview(JSON.parse(text.replace(/```json|```/g,"").trim()));
+    }catch{setChat(p=>[...p,{role:"assistant",content:"Generation failed — check your API key or try again."}]);}
+    setGenerating(false);
+  }
+
+  function commit(){if(!preview)return;const{reasoning,...wk}=preview;setWeeks(p=>[...p,wk]);setSelWk(wk.id);setView("log");setOpenDay(null);setChat(p=>[...p,{role:"assistant",content:"Week "+wk.id+" committed ("+wk.phase+"). "+reasoning}]);setPreview(null);}
+
+  async function sendChat(){
+    if(!chatIn.trim()||chatLoad)return;
+    const msg=chatIn.trim();setChatIn("");setChat(p=>[...p,{role:"user",content:msg}]);setChatLoad(true);
+    const sys="Expert powerlifting coach. Comp maxes: Squat 513lb, Bench 314lb, Deadlift 584lb. Week: "+week.label+" ("+week.phase+").\n\n"+buildSummary(week)+"\n\nRPE rules: hardest set drives adjustments. Off-season, no RPE 9+. Whoop: <34% poor, 34-66% moderate, 67%+ good. Direct, specific, under 200 words.";
+    try{
+      const data=await callClaude(apiKey,{model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:[...chat.slice(-10).map(m=>({role:m.role,content:m.content})),{role:"user",content:msg}]});
+      setChat(p=>[...p,{role:"assistant",content:data.content?.find(b=>b.type==="text")?.text||"No response."}]);
+    }catch{setChat(p=>[...p,{role:"assistant",content:"Connection error — check API key."}]);}
+    setChatLoad(false);
+  }
+
+  const fatigue=weekFatigue(week,logs);
+  const fatCol=fatigue===null?C.dim:fatigue>7?"#ef4444":fatigue>5?"#facc15":"#4ade80";
+  const weekPct=Math.round((week.days.filter(d=>d.type!=="rest"&&getLog(d.id).completed).length/week.days.filter(d=>d.type!=="rest").length)*100);
+
+  function progressionData(lift){return weeks.flatMap(w=>w.days.flatMap(d=>d.exercises.filter(e=>e.lift===lift).map((ex,ei)=>{const l=getLog(d.id);const logged=Object.keys(l.sets||{}).filter(k=>k.startsWith(ei+"-")).map(k=>parseFloat(l.sets[k]?.weight)).filter(Boolean);const w2=logged.length?Math.max(...logged):ex.weight;return w2?{week:w.id,weight:w2,logged:logged.length>0,name:ex.name}:null;}))).filter(Boolean);}
+
+  return (
+    <div onClick={()=>subMenu&&setSubMenu(null)} style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Mono','Courier New',monospace",display:"flex",flexDirection:"column"}}>
+
+      {/* TOPBAR */}
+      <div style={{background:C.card,borderBottom:"1px solid "+C.border,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+          <span style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:22,letterSpacing:3,color:"#fff"}}>AG POWERLIFTING</span>
+          <span style={{fontSize:10,color:C.dim,letterSpacing:2}}>PROGRAM</span>
+        </div>
+        <div style={{display:"flex",gap:5}}>
+          {[["log","LOG"],["chat","COACH"],["history","HISTORY"]].map(([v,l])=>(
+            <button key={v} className="btn" onClick={()=>setView(v)}
+              style={{padding:"5px 14px",borderRadius:5,border:"1px solid "+(view===v?C.borderHi:C.border),background:view===v?C.hover:"transparent",color:view===v?C.text:C.faint,fontSize:10,letterSpacing:1}}>
+              {l}
+            </button>
+          ))}
+          <button className="btn" onClick={()=>{if(confirm("Reset API key?")){store.set("ag-apikey","");setApiKey("");}}}
+            style={{padding:"5px 10px",borderRadius:5,border:"1px solid "+C.border,background:"transparent",color:C.dim,fontSize:10,marginLeft:8}}>⚙</button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flex:1,overflow:"hidden",height:"calc(100vh - 52px)"}}>
+        {/* SIDEBAR */}
+        <div style={{width:190,background:C.card,borderRight:"1px solid "+C.border,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+          <div style={{padding:"14px 12px 6px",fontSize:9,color:C.dim,letterSpacing:2}}>WEEKS</div>
+          {weeks.map(w=>{
+            const a=w.id===selWk,bc=pCol(w.phase);
+            const done=w.days.filter(d=>d.type!=="rest"&&getLog(d.id).completed).length;
+            const tot=w.days.filter(d=>d.type!=="rest").length;
+            const pct=tot?Math.round(done/tot*100):0;
+            return (
+              <button key={w.id} className="btn" onClick={()=>{setSelWk(w.id);setOpenDay(null);}}
+                style={{margin:"2px 8px",padding:"9px 10px",borderRadius:7,border:"1px solid "+(a?bc+"55":C.border),background:a?C.hover:"transparent",textAlign:"left"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:11,color:a?"#fff":C.faint}}>{w.label}</span>
+                  <span style={{fontSize:9,color:pct===100?"#4ade80":pct>0?"#facc15":C.dim}}>{pct===100?"✓":pct>0?pct+"%":""}</span>
+                </div>
+                <div style={{fontSize:9,color:a?bc:C.dim,letterSpacing:1,marginTop:1}}>{w.phase.toUpperCase()}</div>
+                {pct>0&&pct<100&&<div style={{marginTop:5,height:2,background:C.border,borderRadius:1}}><div style={{width:pct+"%",height:"100%",background:bc,borderRadius:1}}/></div>}
+              </button>
+            );
+          })}
+          <div style={{flex:1}}/>
+          <div style={{padding:"10px 8px",borderTop:"1px solid "+C.border}}>
+            <button className="btn" onClick={generate} disabled={generating}
+              style={{width:"100%",padding:"9px 0",borderRadius:7,border:"1px solid "+C.borderHi,background:"transparent",color:generating?C.dim:"#a78bfa",fontSize:10,letterSpacing:1}}>
+              {generating?"⟳ BUILDING...":"+ NEXT WEEK"}
+            </button>
+          </div>
+        </div>
+
+        {/* MAIN */}
+        <div style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+
+          {/* Week header */}
+          <div style={{marginBottom:18,display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+            <div>
+              <div style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:30,letterSpacing:2,color:"#fff",lineHeight:1}}>{week.label.toUpperCase()}</div>
+              <div style={{fontSize:10,color:pCol(week.phase),letterSpacing:2,marginTop:3}}>{week.phase.toUpperCase()} · {weekPct}% COMPLETE</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:5}}>WEEKLY FATIGUE</div>
+              {fatigue===null
+                ? <div style={{fontSize:11,color:C.dim}}>Log sets to track</div>
+                : <div>
+                    <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+                      <div style={{width:110,height:5,background:C.border,borderRadius:3,overflow:"hidden"}}>
+                        <div style={{width:Math.min(Math.max(fatigue*10,0),100)+"%",height:"100%",background:fatCol,borderRadius:3}}/>
+                      </div>
+                      <span style={{fontSize:14,color:fatCol,fontWeight:"bold"}}>{fatigue}/10</span>
+                    </div>
+                    {fatigue>6&&<div style={{fontSize:9,color:"#facc15",marginTop:3}}>⚠ High fatigue — manage load</div>}
+                    {fatigue>8&&<div style={{fontSize:9,color:"#ef4444",marginTop:1}}>⛔ Very high — consider deload</div>}
+                  </div>
+              }
+            </div>
+          </div>
+
+          {/* LOG */}
+          {view==="log"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {week.days.map((day,di)=>{
+                const rest=day.type==="rest",l=getLog(day.id),open=openDay===di,r=getR(day.id);
+                const sbds=day.exercises.filter(e=>e.lift);
+                const prevRPEs=week.days.slice(0,di).flatMap(d=>Object.values(getLog(d.id).sets||{}).map(s=>parseFloat(s.rpe)).filter(v=>!isNaN(v)));
+                const carry=prevRPEs.length?prevRPEs.reduce((a,b)=>a+b,0)/prevRPEs.length:null;
+                const highCarry=carry!==null&&carry>8;
+                return (
+                  <div key={day.id} className="fi" style={{background:C.card,border:"1px solid "+(open?C.borderHi:C.border),borderRadius:10,overflow:"hidden"}}>
+                    <div className="drow" onClick={()=>!rest&&setOpenDay(open?null:di)}
+                      style={{padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:rest?"default":"pointer",background:"transparent"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:2,height:26,borderRadius:1,background:rest?"#3a3a3a":day.type==="sbd"?"#c084fc":"#38bdf8",flexShrink:0}}/>
+                        <div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                            <span style={{fontSize:11,color:rest?C.dim:l.completed?"#4ade80":C.text}}>{l.completed&&"✓ "}{day.label}</span>
+                            <span style={{fontSize:10,color:C.faint}}>{day.focus}</span>
+                            {highCarry&&!rest&&<span style={{fontSize:9,color:"#facc15",padding:"1px 7px",border:"1px solid #facc1533",borderRadius:10}}>⚠ high carry fatigue</span>}
+                          </div>
+                          {!rest&&<div style={{fontSize:10,color:C.dim,marginTop:2}}>{sbds.map(e=>e.name+(e.weight?" "+e.weight+"lb":"")).join(" · ")||"Accessories only"}</div>}
+                        </div>
+                      </div>
+                      {!rest&&<div style={{color:C.dim,fontSize:11,transform:open?"rotate(90deg)":"none"}}>▶</div>}
+                    </div>
+
+                    {open&&(
+                      <div style={{padding:"0 18px 18px",borderTop:"1px solid "+C.border}}>
+                        {/* Readiness */}
+                        <div style={{display:"flex",gap:14,padding:"12px 0 14px",borderBottom:"1px solid "+C.border,marginBottom:16,alignItems:"flex-end",flexWrap:"wrap"}}>
+                          <span style={{fontSize:9,color:C.dim,letterSpacing:1,paddingBottom:2}}>READINESS</span>
+                          {[["whoop","Whoop Recovery","%",68],["sleep","Sleep","/ 10",52],["bw","Body Weight","lb",72]].map(([k,lb,ph,w])=>(
+                            <div key={k}>
+                              <div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:4}}>{lb.toUpperCase()}</div>
+                              <input className="si" type="number" placeholder={ph} value={r[k]||""} style={{width:w}} onChange={e=>updR(day.id,{[k]:e.target.value})}/>
+                            </div>
+                          ))}
+                          <div style={{display:"flex",gap:6,paddingBottom:2,flexWrap:"wrap"}}>
+                            {(()=>{
+                              const whoop=parseFloat(r.whoop),sleep=parseFloat(r.sleep);
+                              const wc=whoop<34?"#ef4444":whoop<67?"#facc15":"#4ade80";
+                              return <>
+                                {r.whoop&&<span style={{fontSize:9,color:wc,padding:"2px 8px",border:"1px solid "+wc+"33",borderRadius:10}}>{whoop<34?"⛔ Poor recovery":whoop<67?"⚠ Moderate recovery":"✓ Good recovery"}</span>}
+                                {r.sleep&&sleep<6&&<span style={{fontSize:9,color:"#facc15",padding:"2px 8px",border:"1px solid #facc1533",borderRadius:10}}>⚠ Low sleep</span>}
+                              </>;
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Exercises */}
+                        {day.exercises.map((ex,ei)=>{
+                          const lc=ex.lift?LIFT_COLORS[ex.lift]:"#38bdf8";
+                          const ek=day.id+"-"+ei,isEd=editEx===ek,ed=exEdits[ek]||{};
+                          const hard=hardestRPE(l.sets,ei,ex.sets);
+                          const synthCol=ex.targetRPE&&hard?rpeCol(hard,ex.targetRPE):C.dim;
+                          const nw=ex.lift?nextW(ex.weight,hard,ex.targetRPE):null;
+                          const subs=(SUBSTITUTIONS[subCatFor(ex)]||SUBSTITUTIONS.upper).filter(s=>s!==ex.name);
+                          return (
+                            <div key={ei} style={{marginBottom:18}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                                {ex.lift&&<div style={{width:2,height:14,background:lc,borderRadius:1,flexShrink:0}}/>}
+                                {isEd?(
+                                  <div style={{display:"flex",flexWrap:"wrap",gap:6,flex:1,alignItems:"center"}}>
+                                    <input className="ei" value={ed.name||""} placeholder="Name" style={{width:165}} onChange={e=>setExEdits(p=>({...p,[ek]:{...p[ek],name:e.target.value}}))}/>
+                                    <input className="ei" value={ed.sets||""} placeholder="Sets" type="number" style={{width:48,textAlign:"center"}} onChange={e=>setExEdits(p=>({...p,[ek]:{...p[ek],sets:e.target.value}}))}/>
+                                    <input className="ei" value={ed.reps||""} placeholder="Reps" style={{width:68,textAlign:"center"}} onChange={e=>setExEdits(p=>({...p,[ek]:{...p[ek],reps:e.target.value}}))}/>
+                                    {ex.weight!=null&&<input className="ei" value={ed.weight||""} placeholder="lb" type="number" style={{width:60,textAlign:"center"}} onChange={e=>setExEdits(p=>({...p,[ek]:{...p[ek],weight:e.target.value}}))}/>}
+                                    {ex.targetRPE!=null&&<input className="ei" value={ed.rpe||""} placeholder="RPE" type="number" step="0.5" style={{width:55,textAlign:"center"}} onChange={e=>setExEdits(p=>({...p,[ek]:{...p[ek],rpe:e.target.value}}))}/>}
+                                    <button className="btn" onClick={()=>saveEdit(day.id,ei)} style={{padding:"4px 10px",borderRadius:5,border:"1px solid #4ade8055",background:"transparent",color:"#4ade80",fontSize:11}}>✓</button>
+                                    <button className="btn" onClick={()=>setEditEx(null)} style={{padding:"4px 10px",borderRadius:5,border:"1px solid "+C.border,background:"transparent",color:C.faint,fontSize:11}}>✕</button>
+                                  </div>
+                                ):(
+                                  <>
+                                    <span style={{fontSize:12,color:ex.lift?C.text:C.muted,fontWeight:ex.lift?"500":"400"}}>{ex.name}</span>
+                                    <span style={{fontSize:10,color:C.faint}}>{ex.sets}×{ex.reps}</span>
+                                    {ex.targetRPE&&<span style={{fontSize:10,color:C.dim}}>@ RPE {ex.targetRPE}</span>}
+                                    {hard&&ex.targetRPE&&(
+                                      <span style={{fontSize:10,color:synthCol,padding:"1px 8px",border:"1px solid "+synthCol+"44",borderRadius:10}}>
+                                        hardest {hard} → {nw!==null?(nw>ex.weight?"▲ +"+(nw-ex.weight)+"lb":nw<ex.weight?"▼ "+(nw-ex.weight)+"lb":"◆ hold"):"◆ hold"}
+                                      </span>
+                                    )}
+                                    <div style={{marginLeft:"auto",display:"flex",gap:4,position:"relative"}}>
+                                      <button className="btn" onClick={e=>{e.stopPropagation();setSubMenu(subMenu===ek?null:ek);}}
+                                        style={{padding:"2px 8px",borderRadius:4,border:"1px solid "+C.border,background:"transparent",color:C.dim,fontSize:10}}>⇄</button>
+                                      <button className="btn" onClick={()=>startEdit(day.id,ei,ex)}
+                                        style={{padding:"2px 8px",borderRadius:4,border:"1px solid "+C.border,background:"transparent",color:C.dim,fontSize:10}}>✎</button>
+                                      {subMenu===ek&&(
+                                        <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:26,right:0,background:"#282828",border:"1px solid "+C.borderHi,borderRadius:8,zIndex:100,minWidth:210,boxShadow:"0 8px 28px rgba(0,0,0,.5)",overflow:"hidden"}}>
+                                          <div style={{padding:"8px 12px",fontSize:9,color:C.dim,letterSpacing:1,borderBottom:"1px solid "+C.border}}>SWAP WITH</div>
+                                          <div style={{maxHeight:220,overflowY:"auto"}}>
+                                            {subs.map(s=>(
+                                              <button key={s} className="btn" onClick={()=>subEx(day.id,ei,s)}
+                                                style={{display:"block",width:"100%",padding:"9px 12px",textAlign:"left",background:"transparent",border:"none",borderBottom:"1px solid "+C.border,color:C.muted,fontSize:11}}>{s}</button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {/* Set cards */}
+                              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                                {Array.from({length:ex.sets},(_,si)=>{
+                                  const s=getSet(day.id,ei,si);
+                                  const rn=parseFloat(s.rpe);
+                                  const sc=ex.lift&&ex.targetRPE&&!isNaN(rn)?rpeCol(rn,ex.targetRPE):C.border;
+                                  return (
+                                    <div key={si} style={{background:C.bg,border:"1px solid "+sc+"66",borderRadius:8,padding:"9px 10px",display:"flex",flexDirection:"column",gap:5,minWidth:84}}>
+                                      <div style={{fontSize:9,color:C.dim,letterSpacing:1}}>SET {si+1}</div>
+                                      <input className="si" type="number" placeholder={ex.weight?ex.weight:"lb"} value={s.weight||""}
+                                        onChange={e=>updSet(day.id,ei,si,"weight",e.target.value)}
+                                        style={{borderColor:s.weight?C.borderHi:C.border,color:s.weight?C.text:C.faint}}/>
+                                      {ex.lift&&(
+                                        <input className="si" type="number" placeholder="RPE" min="5" max="10" step="0.5" value={s.rpe||""}
+                                          onChange={e=>updSet(day.id,ei,si,"rpe",e.target.value)}
+                                          style={{borderColor:sc,color:!isNaN(rn)?sc:C.faint}}/>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {ex.lift&&(()=>{const fw=getSet(day.id,ei,0).weight||ex.weight;return fw?<PlateDisplay weightLbs={fw}/>:null;})()}
+                            </div>
+                          );
+                        })}
+                        {/* Note + Done */}
+                        <div style={{display:"flex",gap:10,alignItems:"flex-end",marginTop:6}}>
+                          <textarea placeholder="Session note..." value={l.note} rows={2} onChange={e=>updLog(day.id,{note:e.target.value})}
+                            style={{flex:1,background:C.bg,border:"1px solid "+C.border,borderRadius:8,color:C.text,fontSize:11,padding:"9px 12px",resize:"none"}}/>
+                          <button className="btn" onClick={()=>{updLog(day.id,{completed:true});setOpenDay(null);}}
+                            style={{padding:"9px 18px",borderRadius:8,border:"1px solid #4ade8055",background:"#1a2a1f",color:"#4ade80",fontSize:11,letterSpacing:1,whiteSpace:"nowrap"}}>
+                            ✓ DONE
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* CHAT */}
+          {view==="chat"&&(
+            <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 172px)",background:C.card,border:"1px solid "+C.border,borderRadius:10,overflow:"hidden"}}>
+              <div style={{padding:"11px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"#4ade80",boxShadow:"0 0 8px #4ade80"}}/>
+                <span style={{fontSize:10,color:C.faint,letterSpacing:1}}>AI COACH · {week.label.toUpperCase()}{fatigue!==null?" · fatigue "+fatigue+"/10":""}</span>
+              </div>
+              <div style={{flex:1,overflowY:"auto",padding:18,display:"flex",flexDirection:"column",gap:12}}>
+                {chat.map((m,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+                    <div style={{maxWidth:"78%",padding:"10px 14px",borderRadius:10,fontSize:12,lineHeight:1.7,
+                      background:m.role==="user"?C.hover:C.bg,border:"1px solid "+(m.role==="user"?C.borderHi:C.border),
+                      color:m.role==="user"?"#c4b5fd":C.muted,whiteSpace:"pre-wrap"}}>{m.content}</div>
+                  </div>
+                ))}
+                {chatLoad&&<div style={{display:"flex",gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#4ade80",animation:"pulse 1.2s ease "+(i*.2)+"s infinite"}}/>)}</div>}
+                <div ref={chatRef}/>
+              </div>
+              <div style={{padding:"11px 18px",borderTop:"1px solid "+C.border,display:"flex",gap:8}}>
+                <textarea value={chatIn} onChange={e=>setChatIn(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
+                  placeholder="Ask about adjustments, fatigue, anything..." rows={2}
+                  style={{flex:1,background:C.bg,border:"1px solid "+C.border,borderRadius:8,color:C.text,fontSize:12,padding:"9px 13px",resize:"none"}}/>
+                <button className="btn" onClick={sendChat} disabled={chatLoad}
+                  style={{padding:"0 16px",background:C.bg,border:"1px solid "+C.borderHi,borderRadius:8,color:chatLoad?C.dim:"#a78bfa",fontSize:18}}>↑</button>
+              </div>
+            </div>
+          )}
+
+          {/* HISTORY */}
+          {view==="history"&&(
+            <div>
+              <div style={{fontSize:10,color:C.dim,letterSpacing:2,marginBottom:16}}>LOAD PROGRESSION — ALL WEEKS</div>
+              {["squat","bench","deadlift"].map(lift=>{
+                const lc=LIFT_COLORS[lift],pts=progressionData(lift);
+                if(!pts.length) return <div key={lift} style={{marginBottom:12,padding:"14px 18px",background:C.card,borderRadius:10,border:"1px solid "+C.border}}><div style={{fontSize:11,color:lc,letterSpacing:1}}>{lift.toUpperCase()}</div><div style={{fontSize:11,color:C.dim,marginTop:6}}>No data</div></div>;
+                const maxW=Math.max(...pts.map(p=>p.weight)),minW=Math.min(...pts.map(p=>p.weight));
+                const trend=pts[pts.length-1].weight-pts[0].weight;
+                return (
+                  <div key={lift} style={{marginBottom:12,padding:"16px 18px",background:C.card,borderRadius:10,border:"1px solid "+C.border}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
+                      <span style={{fontSize:11,color:lc,letterSpacing:1}}>{lift.toUpperCase()}</span>
+                      <div style={{display:"flex",gap:16}}>
+                        <span style={{fontSize:10,color:C.faint}}>Peak <span style={{color:lc}}>{maxW}lb</span></span>
+                        <span style={{fontSize:10,color:C.faint}}>Trend <span style={{color:trend>=0?"#4ade80":"#ef4444"}}>{trend>=0?"+":""}{trend}lb</span></span>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"flex-end",gap:4,height:72}}>
+                      {pts.map((p,i)=>{const h=maxW===minW?50:Math.max(6,((p.weight-minW)/(maxW-minW))*66);return(
+                        <div key={i} title={p.name+" W"+p.week+": "+p.weight+"lb"+(p.logged?" (logged)":" (programmed)")} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                          <div style={{fontSize:8,color:C.dim}}>{p.weight}</div>
+                          <div style={{width:"100%",height:h,background:p.logged?lc:lc+"33",borderRadius:"3px 3px 0 0",border:"1px solid "+(p.logged?lc:lc+"55")}}/>
+                          <div style={{fontSize:8,color:C.dim}}>W{p.week}</div>
+                        </div>
+                      );})}
+                    </div>
+                    <div style={{marginTop:8,fontSize:9,color:C.dim,display:"flex",gap:12}}>
+                      <span><span style={{color:lc}}>█</span> logged</span>
+                      <span><span style={{color:lc+"44"}}>█</span> programmed</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Preview modal */}
+      {preview&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setPreview(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#282828",border:"1px solid "+C.borderHi,borderRadius:12,padding:24,maxWidth:580,width:"90%",maxHeight:"82vh",overflowY:"auto"}}>
+            <div style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:22,letterSpacing:2,marginBottom:3}}>WEEK {preview.id} PREVIEW</div>
+            <div style={{fontSize:10,color:pCol(preview.phase),letterSpacing:2,marginBottom:16}}>{preview.phase?.toUpperCase()}</div>
+            {preview.reasoning&&<div style={{padding:"12px 14px",background:C.bg,borderRadius:8,border:"1px solid "+C.border,fontSize:12,color:C.muted,lineHeight:1.65,marginBottom:16}}>💡 {preview.reasoning}</div>}
+            {preview.days?.filter(d=>d.type!=="rest").map((d,i)=>(
+              <div key={i} style={{marginBottom:10,padding:"12px 14px",background:C.bg,borderRadius:8,border:"1px solid "+C.border}}>
+                <div style={{fontSize:11,color:C.text,marginBottom:8}}>{d.label} — {d.focus}</div>
+                {d.exercises?.filter(e=>e.lift).map((ex,ei)=>(
+                  <div key={ei} style={{fontSize:11,color:C.muted,display:"flex",gap:8,marginBottom:5,alignItems:"center"}}>
+                    <div style={{width:3,height:14,background:LIFT_COLORS[ex.lift]||"#555",borderRadius:1,flexShrink:0}}/>
+                    <span style={{color:C.text}}>{ex.name}</span>
+                    <span>{ex.sets}×{ex.reps}</span>
+                    {ex.weight&&<span style={{color:LIFT_COLORS[ex.lift]||C.text,fontWeight:"500"}}>{ex.weight}lb</span>}
+                    {ex.targetRPE&&<span style={{color:C.faint}}>@ RPE {ex.targetRPE}</span>}
+                  </div>
+                ))}
+                {d.exercises?.filter(e=>!e.lift).length>0&&<div style={{fontSize:10,color:C.dim,marginTop:5}}>+ {d.exercises.filter(e=>!e.lift).map(e=>e.name).join(", ")}</div>}
+              </div>
+            ))}
+            <div style={{display:"flex",gap:10,marginTop:16}}>
+              <button className="btn" onClick={commit} style={{flex:1,padding:"11px 0",borderRadius:8,border:"1px solid #4ade8055",background:"#1a2a1f",color:"#4ade80",fontSize:12,letterSpacing:1}}>✓ COMMIT WEEK {preview.id}</button>
+              <button className="btn" onClick={()=>setPreview(null)} style={{padding:"11px 18px",borderRadius:8,border:"1px solid "+C.border,background:"transparent",color:C.faint,fontSize:12}}>Discard</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
